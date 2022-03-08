@@ -3,7 +3,146 @@
 	trigger
 ]==============================================]--
 
+local commands = {}
+
+local function get_command(msg, pattern)
+	local name, args = msg:match(pattern)
+	if not name then
+		return
+	end
+	return commands[name], args
+end
+
+local last_time = 0
+
+function aura_env.trigger2(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
+	-- throttle
+	local ctime = GetTime()
+	if ctime - last_time < 1 then
+		return
+	end
+	
+	-- get channel
+	local channel
+	if (event == "CHAT_MSG_GUILD") and aura_env.config.enable_guild then
+		channel = "GUILD"
+	elseif (event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER") and aura_env.config.enable_raid then
+		channel = "RAID"
+	elseif (event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER") and aura_env.config.enable_party then
+		channel = "PARTY"
+	end
+	if not channel then
+		return
+	end
+	
+	local is_self = guid == UnitGUID("player")
+	
+	-- get command
+	local command, args = get_command(msg, "^!(%a+) ?(.*)$")
+	if not command then
+		command, args = get_command(msg, "^[!#]my(%a+) ?(.*)$")
+		if not command then
+			return
+		end
+		if not is_self then
+			return
+		end
+	end
+	if command.self and not is_self then
+		return
+	end
+	
+	-- create context info
+	local info = {
+		channel = channel;
+		msg = args;
+		msgl = args:lower();
+		self = is_self;
+	}
+	
+	-- execute command
+	local result = command:func(info)
+	if not result then
+		return
+	end
+	
+	if type(result) == "string" then
+		result = {result}
+	end
+	
+	local output = {}
+	for i = 1, #result do
+		local val = result[i]
+		if #val <= 255 then
+			table.insert(output, val)
+		else
+			local s = 255 + 1 - (val:sub(1, 255):reverse():find(" ") or 1)
+			table.insert(output, val:sub(1, s))
+			table.insert(output, val:sub(s + 1))
+		end
+	end
+	
+	for i, sub in ipairs(output) do
+		C_Timer.After((i - 1)*0.25, function()
+			SendChatMessage(sub, channel)
+		end)
+	end
+	
+	last_time = ctime
+	
+	return true
+end
+
+--[==============================================[
+	lib
+]==============================================]--
+
+--[==============================================[
+	commands
+]==============================================]--
+
+commands.renown = {
+	func = function()
+		local covID = C_Covenants.GetActiveCovenantID()
+		if not covID then
+			return
+		end
+		local covData = C_Covenants.GetCovenantData(covID)
+		if not covData then
+			return
+		end
+		local renown = C_CovenantSanctumUI.GetRenownLevel()
+		if not renown then
+			return
+		end
+		return "Renown: " .. tostring(renown) .. " (" .. tostring(covData.name) .. ")"
+	end;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function aura_env.trigger(event, ...)
+	--! temp
+	--! temp
+	--! temp
+	if aura_env.trigger2(event, ...) then
+		return
+	end
+	--! temp
+	--! temp
+	--! temp
 	local msg = ...
 	if not event or not msg then
 		return
@@ -348,6 +487,10 @@ aura_env.commands.conduits = {
 		-- 	.. specMissing .. " (" .. BreakUpLargeNumbers(specMissing*3000) .. "), "
 		-- 	.. "All: "
 		-- 	.. allMissing .. " (" .. BreakUpLargeNumbers(allMissing*3000) .. ")"
+		
+		-- do
+		-- 	return "[9.2] Missing " .. specMissing .. " " .. specName .. ", " .. allMissing .. " total"
+		-- end
 		
 		return
 			"[9.2] " ..
@@ -713,7 +856,33 @@ aura_env.commands.magetower = {
 		
 		local classes = 0
 		
-		local t = {52769, 52764, 52761, 52766, 52765, 52758, 52767, 52762, 52768, 52763, 52760, 52759}
+		-- 01 WARRIOR
+		-- 02 PALADIN
+		-- 03 HUNTER
+		-- 04 ROGUE
+		-- 05 PRIEST
+		-- 06 DEATHKNIGHT
+		-- 07 SHAMAN
+		-- 08 MAGE
+		-- 09 WARLOCK
+		-- 10 MONK
+		-- 11 DRUID
+		-- 12 DEMONHUNTER
+		
+		local t = {
+			52769; -- Warrior
+			52764; -- Paladin
+			52761; -- Hunter
+			52766; -- Rogue
+			52765; -- Priest
+			52758; -- Death Knight
+			52767; -- Shaman
+			52762; -- Mage
+			52768; -- Warlock
+			52763; -- Monk
+			52760; -- Druid
+			52759; -- Demon Hunter
+		}
 		for _, id in ipairs(t) do
 			local done = select(3, GetAchievementCriteriaInfoByID(15308, id))
 			if done then
@@ -723,18 +892,18 @@ aura_env.commands.magetower = {
 		
 		-- head mogs
 		local mogIDs = {
-			188534; -- Death Knight
-			188542; -- Demon Hunter
-			188550; -- Druid
-			188558; -- Hunter
-			188565; -- Mage
-			188574; -- Monk
-			188582; -- Paladin
-			188589; -- Priest
-			188598; -- Rogue
-			188606; -- Shaman
-			188613; -- Warlock
 			188622; -- Warrior
+			188582; -- Paladin
+			188558; -- Hunter
+			188598; -- Rogue
+			188589; -- Priest
+			188534; -- Death Knight
+			188606; -- Shaman
+			188565; -- Mage
+			188613; -- Warlock
+			188574; -- Monk
+			188550; -- Druid
+			188542; -- Demon Hunter
 		}
 		
 		local mogs = 0
