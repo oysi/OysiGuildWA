@@ -15,7 +15,7 @@ end
 
 local last_time = 0
 
-function aura_env.trigger2(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
+function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	-- throttle
 	local ctime = GetTime()
 	if ctime - last_time < 1 then
@@ -35,6 +35,7 @@ function aura_env.trigger2(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 		return
 	end
 	
+	local is_my = false
 	local is_self = guid == UnitGUID("player")
 	
 	-- get command
@@ -44,24 +45,20 @@ function aura_env.trigger2(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 		if not command then
 			return
 		end
-		if not is_self then
-			return
-		end
+		is_my = true
 	end
-	if command.self and not is_self then
+	if (command.self or is_my) and not is_self then
 		return
 	end
 	
-	-- create context info
-	local info = {
-		channel = channel;
-		msg = args;
-		msgl = args:lower();
-		self = is_self;
-	}
+	command.msg = args
+	command.msgl = args:lower()
+	
+	command.is_my = is_my
+	command.is_self = is_self
 	
 	-- execute command
-	local result = command:func(info)
+	local result = command:func()
 	if not result then
 		return
 	end
@@ -89,615 +86,161 @@ function aura_env.trigger2(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	end
 	
 	last_time = ctime
-	
-	return true
 end
 
 --[==============================================[
 	lib
 ]==============================================]--
 
---[==============================================[
-	commands
-]==============================================]--
-
-commands.renown = {
-	func = function()
-		local covID = C_Covenants.GetActiveCovenantID()
-		if not covID then
-			return
-		end
-		local covData = C_Covenants.GetCovenantData(covID)
-		if not covData then
-			return
-		end
-		local renown = C_CovenantSanctumUI.GetRenownLevel()
-		if not renown then
-			return
-		end
-		return "Renown: " .. tostring(renown) .. " (" .. tostring(covData.name) .. ")"
-	end;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function aura_env.trigger(event, ...)
-	--! temp
-	--! temp
-	--! temp
-	if aura_env.trigger2(event, ...) then
-		return
-	end
-	--! temp
-	--! temp
-	--! temp
-	local msg = ...
-	if not event or not msg then
-		return
-	end
-	
-	local msg_orig = msg
-	
-	local channel
-	if (event == "CHAT_MSG_GUILD") and aura_env.config.enable_guild then
-		channel = "GUILD"
-	elseif (event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER") and aura_env.config.enable_raid then
-		channel = "RAID"
-	elseif (event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER") and aura_env.config.enable_party then
-		channel = "PARTY"
-	end
-	if not channel then
-		return
-	end
-	
-	local function send(msg)
-		local ctime = GetTime()
-		local dif = ctime - (aura_env.time or 0)
-		if dif < 1 then
-			return
-		end
-		aura_env.time = ctime
-		if type(msg) == "string" then
-			SendChatMessage(msg, channel)
-		elseif type(msg) == "table" then
-			for i, sub in ipairs(msg) do
-				C_Timer.After((i - 1)*0.25, function()
-					SendChatMessage(sub, channel)
-				end)
-			end
-		end
-	end
-	
-	local function check(func, msgl, ...)
-		if not ... then
-			return
-		end
-		local msg = msgl == ... and func() or func(...)
-		if not msg then
-			return
-		end
-		send(msg)
-		return true
-	end
-	
-	local ismyself = select(12, ...) == UnitGUID("player")
-	
-	if msg:lower():sub(1, 3) == "#my" and ismyself then
-		msg = "!" .. msg:sub(4)
-	end
-	
-	for name, info in pairs(aura_env.commands) do
-		for _, match in ipairs(info.match) do
-			if (aura_env.config[name] or info.bypass)
-			and (not info.self or ismyself)
-			and check(info.func, msg:lower(), msg:lower():match(match)) then
-				break
-			end
-		end
-	end
-end
-
---[==============================================[
-	declarations
-]==============================================]--
-
-local notecheck_matches = {
-	-- SL -- SoD -- Kel'Thuzad
-	"\nstartLine\n(.-)\nendLine\n";
-	"\nstartLine\n(.-)\nendLine$";
-	
-	-- SL -- SoD -- Soulrender Dormazain
-	"\nchainOrder\n(.-)\nend\n";
-	"\nchainOrder\n(.-)\nend$";
-	
-	-- Generic
-	"\nnotecheckstart\n(.-)\nnotecheckend";
-}
-
-local shardIDs = {
-	[187073] = "unholy11"; -- Shard of Dyz (Rank 1)
-	[187290] = "unholy12"; -- Shard of Dyz (Rank 2)
-	[187299] = "unholy13"; -- Shard of Dyz (Rank 3)
-	[187308] = "unholy14"; -- Shard of Dyz (Rank 4)
-	[187318] = "unholy15"; -- Shard of Dyz (Rank 5)
-	
-	[187079] = "unholy21"; -- Shard of Zed (Rank 1)
-	[187292] = "unholy22"; -- Shard of Zed (Rank 2)
-	[187301] = "unholy23"; -- Shard of Zed (Rank 3)
-	[187310] = "unholy24"; -- Shard of Zed (Rank 4)
-	[187320] = "unholy25"; -- Shard of Zed (Rank 5)
-	
-	[187076] = "unholy31"; -- Shard of Oth (Rank 1)
-	[187291] = "unholy32"; -- Shard of Oth (Rank 2)
-	[187300] = "unholy33"; -- Shard of Oth (Rank 3)
-	[187309] = "unholy34"; -- Shard of Oth (Rank 4)
-	[187319] = "unholy35"; -- Shard of Oth (Rank 5)
-	
-	[187063] = "frost11"; -- Shard of Cor (Rank 1)
-	[187287] = "frost12"; -- Shard of Cor (Rank 2)
-	[187296] = "frost13"; -- Shard of Cor (Rank 3)
-	[187305] = "frost14"; -- Shard of Cor (Rank 4)
-	[187315] = "frost15"; -- Shard of Cor (Rank 5)
-	
-	[187071] = "frost21"; -- Shard of Tel (Rank 1)
-	[187289] = "frost22"; -- Shard of Tel (Rank 2)
-	[187298] = "frost23"; -- Shard of Tel (Rank 3)
-	[187307] = "frost24"; -- Shard of Tel (Rank 4)
-	[187317] = "frost25"; -- Shard of Tel (Rank 5)
-	
-	[187065] = "frost31"; -- Shard of Kyr (Rank 1)
-	[187288] = "frost32"; -- Shard of Kyr (Rank 2)
-	[187297] = "frost33"; -- Shard of Kyr (Rank 3)
-	[187306] = "frost34"; -- Shard of Kyr (Rank 4)
-	[187316] = "frost35"; -- Shard of Kyr (Rank 5)
-	
-	[187057] = "blood11"; -- Shard of Bek (Rank 1)
-	[187284] = "blood12"; -- Shard of Bek (Rank 2)
-	[187293] = "blood13"; -- Shard of Bek (Rank 3)
-	[187302] = "blood14"; -- Shard of Bek (Rank 4)
-	[187312] = "blood15"; -- Shard of Bek (Rank 5)
-	
-	[187059] = "blood21"; -- Shard of Jas (Rank 1)
-	[187285] = "blood22"; -- Shard of Jas (Rank 2)
-	[187294] = "blood23"; -- Shard of Jas (Rank 3)
-	[187303] = "blood24"; -- Shard of Jas (Rank 4)
-	[187313] = "blood25"; -- Shard of Jas (Rank 5)
-	
-	[187061] = "blood31"; -- Shard of Rev (Rank 1)
-	[187286] = "blood32"; -- Shard of Rev (Rank 2)
-	[187295] = "blood33"; -- Shard of Rev (Rank 3)
-	[187304] = "blood34"; -- Shard of Rev (Rank 4)
-	[187314] = "blood35"; -- Shard of Rev (Rank 5)
-}
-
---[==============================================[
-	functions
-]==============================================]--
-
-local function getRepText(factionID, overrideName)
-	local
-	name,
-	description,
-	standingID,
-	barMin,
-	barMax,
-	barVal,
-	atWarWith,
-	canToggleAtWar,
-	isHeader,
-	isCollapsed,
-	hasRep,
-	isWatched,
-	isChild,
-	factionID,
-	hasBonusRepGain,
-	canBeLFGBonus
-	= GetFactionInfoByID(factionID)
+local function get_rep_text(factionID)
+	local name, _, standingID, bar_min, bar_max, bar_val = GetFactionInfoByID(factionID)
 	if not name then
 		return
 	end
 	
-	local min = barVal - barMin
-	local max = barMax - barMin
+	local min = bar_val - bar_min
+	local max = bar_max - bar_min
 	
-	local
-	friendID,
-	friendRep,
-	friendMaxRep,
-	friendName,
-	friendText,
-	friendTexture,
-	friendTextLevel,
-	friendThreshold,
-	nextFriendThreshold
-	= GetFriendshipReputation(factionID)
+	local friendID, _, _, friendName, _, _, friendTextLevel = GetFriendshipReputation(factionID)
 	
-	local displayName
-	local displayStanding
-	
-	if not friendID then
-		displayName = name
-		displayStanding = _G["FACTION_STANDING_LABEL" .. standingID] or standingID
-	else
-		displayName = friendName
-		displayStanding = friendTextLevel
-	end
-	
-	if overrideName then
-		displayName = overrideName
-	end
+	local disp_name = friendID and friendName or name
+	local disp_standing = friendID and friendTextLevel or _G["FACTION_STANDING_LABEL" .. standingID] or standingID
 	
 	local str = ""
-	str = str .. displayName .. ": "
-	str = str .. displayStanding
+	str = str .. disp_name .. ": " .. disp_standing
 	if not (min == 0 and max == 0) then
 		str = str .. " (" .. BreakUpLargeNumbers(min) .. " / " .. BreakUpLargeNumbers(max) .. ")"
 	end
 	return str
 end
 
-local function getShards()
-	local shards = {}
-	
-	for itemID, name in pairs(shardIDs) do
-		local c = GetItemCount(itemID, true)
-		if c and c > 0 then
-			shards[name] = true
-		end
-	end
-	
-	local function process(itemLink)
-		if not itemLink then
-			return
-		end
-		local link = itemLink:match("|Hitem:(.-)|h")
-		if link then
-			local _, _, gem1, gem2, gem3 = strsplit(":", link)
-			local gems = {tonumber(gem1), tonumber(gem2), tonumber(gem3)}
-			for _, itemID in ipairs(gems) do
-				local name = shardIDs[itemID]
-				if name then
-					shards[name] = true
-				end
-			end
-		end
-	end
-	
-	for i = 1, 10 do
-		local itemLink = GetInventoryItemLink("player", i)
-		process(itemLink)
-	end
-	
-	for j = 0, 4 do
-		local n = GetContainerNumSlots(j)
-		for i = 1, n do
-			local itemLink = GetContainerItemLink(j, i)
-			process(itemLink)
-		end
-	end
-	
-	return shards
-end
-
-local function getShardInfo(name)
-	local shardType, shardIndex, shardRank = name:match("(%a+)(%d)(%d)")
-	return shardType, tonumber(shardIndex), tonumber(shardRank)
-end
-
 --[==============================================[
 	commands
 ]==============================================]--
 
-aura_env.commands = {}
-
-aura_env.commands.renown = {
-	match = {
-		"^!renown$";
-	};
-	func = function()
-		local covID = C_Covenants.GetActiveCovenantID()
-		if not covID then
-			return
-		end
-		local covData = C_Covenants.GetCovenantData(covID)
-		if not covData then
-			return
-		end
-		local renown = C_CovenantSanctumUI.GetRenownLevel()
-		if not renown then
-			return
-		end
-		return "Renown: " .. tostring(renown) .. " (" .. tostring(covData.name) .. ")"
-	end;
-}
-
-aura_env.commands.korthia = {
-	match = {
-		"^!korthia$";
-	};
-	func = function()
-		return getRepText(2472--[[The Archivists' Codex]], "Korthia")
-	end;
-}
-
-aura_env.commands.deathsadvance = {
-	match = {
-		"^!da$";
-	};
-	func = function()
-		return getRepText(2470--[[Death's Advance]])
-	end;
-}
-
-aura_env.commands.conduits = {
-	match = {
-		"^!conduits$";
-	};
-	func = function()
-		--[[
-		local missing = 0
-		for conduitType = 0, 2 do
-			local list = C_Soulbinds.GetConduitCollection(conduitType)
-			for _, info in ipairs(list) do
-				missing = missing + 9 - (info.conduitRank or 0)
+commands.rep = {
+	func = function(self)
+		local list = {}
+		
+		for i = 1, math.huge do
+			local name, _, _, _, _, _, _, _, _, _, _, _, _, id = GetFactionInfo(i)
+			if not name then
+				break
 			end
-		end
-		return "Missing: " .. missing .. " upgrades (cost: " .. BreakUpLargeNumbers(missing*3000) .. ")"
-		--]]
-		
-		local specIndex = GetSpecialization()
-		if not specIndex then
-			return
+			table.insert(list, {
+				name = name;
+				id = id;
+			})
 		end
 		
-		local specName = select(2, GetSpecializationInfo(specIndex))
+		local msg = self.msgl:gsub("[%p%s]", "")
 		
-		local specMissing = 0
-		local otherMissing = 0
-		
-		for conduitType = 0, 3 do
-			local list = C_Soulbinds.GetConduitCollection(conduitType)
-			for _, info in ipairs(list) do
-				local missing = 11 - (info.conduitRank or 0)
-				if not info.conduitSpecName or info.conduitSpecName == specName then
-					specMissing = specMissing + missing
-				else
-					otherMissing = otherMissing + missing
+		for _, info in pairs(list) do
+			local name = info.name:lower():gsub("[%p%s]", "")
+			local match = name:match(msg)
+			info.correct = 0
+			info.early = false
+			if match then
+				info.correct = #match / #name
+				if name:sub(1, #match) == match then
+					info.early = true
 				end
 			end
 		end
 		
-		local allMissing = specMissing + otherMissing
+		table.sort(list, function(a, b)
+			if a.early ~= b.early then
+				return a.early and not b.early
+			elseif a.correct ~= b.correct then
+				return a.correct > b.correct
+			else
+				return a.name < b.name
+			end
+		end)
 		
-		-- return
-		-- 	"[9.2] " ..
-		-- 	specName .. ": "
-		-- 	.. specMissing .. " (" .. BreakUpLargeNumbers(specMissing*3000) .. "), "
-		-- 	.. "All: "
-		-- 	.. allMissing .. " (" .. BreakUpLargeNumbers(allMissing*3000) .. ")"
-		
-		-- do
-		-- 	return "[9.2] Missing " .. specMissing .. " " .. specName .. ", " .. allMissing .. " total"
-		-- end
-		
-		return
-			"[9.2] " ..
-			specName .. ": "
-			.. specMissing
-			.. ", "
-			.. "All: "
-			.. allMissing
+		local info = list[1]
+		if info and info.correct > 0 then
+			return get_rep_text(info.id)
+		end
 	end;
 }
 
-aura_env.commands.shards = {
-	match = {
-		"^!shards$";
-	};
-	func = function()
-		local shards = getShards()
-		local ranks = {
-			unholy = {0, 0, 0};
-			frost = {0, 0, 0};
-			blood = {0, 0, 0};
-		}
+local magetower_classes = {
+	[01] = {"WARRIOR"    , "Warrior"     , 52769, 188622};
+	[02] = {"PALADIN"    , "Paladin"     , 52764, 188582};
+	[03] = {"HUNTER"     , "Hunter"      , 52761, 188558};
+	[04] = {"ROGUE"      , "Rogue"       , 52766, 188598};
+	[05] = {"PRIEST"     , "Priest"      , 52765, 188589};
+	[06] = {"DEATHKNIGHT", "Death Knight", 52758, 188534};
+	[07] = {"SHAMAN"     , "Shaman"      , 52767, 188606};
+	[08] = {"MAGE"       , "Mage"        , 52762, 188565};
+	[09] = {"WARLOCK"    , "Warlock"     , 52768, 188613};
+	[10] = {"MONK"       , "Monk"        , 52763, 188574};
+	[11] = {"DRUID"      , "Druid"       , 52760, 188550};
+	[12] = {"DEMONHUNTER", "Demon Hunter", 52759, 188542};
+}
+
+commands.magetower = {
+	func = function(self)
+		local challenges = 0
+		local achis = 0
+		local mogs = 0
 		
-		for name in pairs(shards) do
-			local shardType, shardIndex, shardRank = getShardInfo(name)
-			ranks[shardType][shardIndex] = shardRank
+		local list = {}
+		for i = 1, 7 do
+			local name, _, done = GetAchievementCriteriaInfo(15310, i, true)
+			if done then
+				challenges = challenges + 1
+			end
+			table.insert(list, (done and "|cFF00FF00" or "|cFFFF0000") .. name)
+		end
+		if self.is_my then
+			print("Challenges: " .. table.concat(list, "|r, "))
+		end
+		
+		local bear_done = select(3, GetAchievementCriteriaInfo(15312, 1, true))
+		if bear_done then
+			mogs = mogs + 1
+		end
+		
+		if self.is_my then
+			print(
+				"Bear: "
+				.. (bear_done and "|cFF00FF00" or "|cFFFF0000")
+				.. (bear_done and "done" or "not done")
+			)
+		end
+		
+		for _, info in ipairs(magetower_classes) do
+			local achi = select(3, GetAchievementCriteriaInfoByID(15308, info[3]))
+			if achi then
+				achis = achis + 1
+			end
+			local mog = C_TransmogCollection.PlayerHasTransmog(info[4])
+			if mog then
+				mogs = mogs + 1
+			end
+			if self.is_my then
+				print(
+					(achi and "|cFF00FF00" or "|cFFFF0000") .. "achi "
+					.. (mog and "|cFF00FF00" or "|cFFFF0000") .. "mog "
+					.. RAID_CLASS_COLORS[info[1]]:WrapTextInColorCode(info[2])
+				)
+			end
 		end
 		
 		return
-			"Unholy: " .. table.concat(ranks.unholy, " ") .. ", "
-			.. "Frost: " .. table.concat(ranks.frost, " ") .. ", "
-			.. "Blood: " .. table.concat(ranks.blood, " ")
+			"Mage Tower:"
+			.. " " .. challenges .. "/7"
+			.. " (" .. mogs .. "/13 mogs, " .. achis .. "/12 classes)"
 	end;
 }
 
-aura_env.commands.tormentors = {
-	match = {
-		"^!tormentors$";
-	};
-	func = function()
-		local done = C_QuestLog.IsQuestFlaggedCompleted(63854)
-		if done then
-			return "Tormentors: 1/1"
-		else
-			return "Tormentors: 0/1"
-		end
-	end;
-}
-
-aura_env.commands.embers = {
-	match = {
-		"^!embers$";
-	};
-	func = function()
-		local shards = getShards()
-		local total = 0
-		local cost = {
-			[1] = 0;
-			[2] = 5;
-			[3] = 5 + 15;
-			[4] = 5 + 15 + 30;
-			[5] = 5 + 15 + 30 + 50;
-		}
-		
-		local info = C_CurrencyInfo.GetCurrencyInfo(1977--[[Stygian Ember]])
-		if info and info.quantity then
-			total = total + info.quantity
-		end
-		
-		for name in pairs(shards) do
-			local shardType, shardIndex, shardRank = getShardInfo(name)
-			total = total + cost[shardRank]
-		end
-		
-		local t1 = time {year = 2021, month = 7, day = 7, hour = 9}
-		local t2 = GetServerTime()
-		local weeks = math.ceil((t2 - t1)/86400/7)
-		
-		return string.format("Embers: %i total, %.2f per week", total, total/weeks)
-	end;
-}
-
--- aura_env.commands.notecheck = {
--- 	match = {
--- 		"^!notecheck (.+)$";
--- 		"^!notecheck$";
--- 	};
--- 	self = true;
--- 	func = function(msg)
--- 		if not _G.VExRT or not _G.VExRT.Note or not _G.VExRT.Note.Text1 then
--- 			return "ERROR: no ExRT note"
--- 		end
-		
--- 		local note = _G.VExRT.Note.Text1
-		
--- 		local result = {}
-		
--- 		local in_note = {}
--- 		local in_raid = {}
-		
--- 		-- local unformatted = {}
-		
--- 		local t
-		
--- 		for _, match in ipairs(notecheck_matches) do
--- 			local s1, s2, _ = note:find(match)
--- 			if s1 and s2 then
--- 				local section = note:sub(s1, s2)
--- 				note = note:sub(1, s1 - 1) .. note:sub(s2 + 1, -1)
--- 				-- for word in section:gmatch("%a+") do
--- 				-- 	unformatted[word] = true
--- 				-- end
--- 				for name in section:gmatch("|c........(.-)||r") do
--- 					name = name:gsub("[%p%s]", "") -- fix name formatting
--- 					in_note[name] = (in_note[name] or 0) + 1
--- 				end
--- 			end
--- 		end
-		
--- 		if next(in_note) == nil then
--- 			return "ERROR: found no names in note"
--- 		end
-		
--- 		-- scan raid
--- 		local grp_min = 1
--- 		local grp_max = 8
--- 		if msg then
--- 			-- grp_min, grp_max = msg:match("^%s*(%d+)%s*%-%s*(%d+)%s*$")
--- 			grp_min, grp_max = msg:gsub("%s", ""):match("(%d+)%-(%d+)")
--- 			grp_min = tonumber(grp_min)
--- 			grp_max = tonumber(grp_max)
--- 			if not grp_min or not (grp_min >= 1 and grp_min <= 8)
--- 			or not grp_max or not (grp_max >= 1 and grp_max <= 8)
--- 			or not (grp_min <= grp_max)
--- 			then
--- 				return "ERROR: invalid groups"
--- 			end
--- 		end
--- 		for i = 1, GetNumGroupMembers() do
--- 			local name, _, subgroup = GetRaidRosterInfo(i)
--- 			if name and subgroup then
--- 				local real = name:match("(.-)%-")
--- 				if real then
--- 					name = real
--- 				end
--- 				if subgroup >= grp_min and subgroup <= grp_max then
--- 					in_raid[name] = (in_raid[name] or 0) + 1
--- 				end
--- 			end
--- 		end
-		
--- 		-- not in raid
--- 		t = {}
--- 		for name in pairs(in_note) do
--- 			if not in_raid[name] then
--- 				table.insert(t, name)
--- 			end
--- 		end
--- 		table.sort(t)
--- 		result[#result + 1] = "Not in raid: " .. table.concat(t, ", ")
-		
--- 		-- not in note
--- 		t = {}
--- 		for name in pairs(in_raid) do
--- 			if not in_note[name] then
--- 				table.insert(t, name)
--- 			end
--- 		end
--- 		table.sort(t)
--- 		result[#result + 1] = "Not in note: " .. table.concat(t, ", ")
-		
--- 		-- multiple hits
--- 		t = {}
--- 		for name, count in pairs(in_note) do
--- 			if count > 1 then
--- 				table.insert(t, name .. " (" .. count .. "x)")
--- 			end
--- 		end
--- 		if #t > 0 then
--- 			table.sort(t)
--- 			result[#result + 1] = "Listed multiple times: " .. table.concat(t, ", ")
--- 		end
-		
--- 		-- unformatted
--- 		-- t = {}
--- 		-- for word in pairs(unformatted) do
--- 		-- 	if in_raid[word] then
--- 		-- 		table.insert(t, word)
--- 		-- 	end
--- 		-- end
--- 		-- if #t > 0 then
--- 		-- 	table.sort(t)
--- 		-- 	result[#result + 1] = "FORMATTING ERROR: " .. table.concat(t, ", ")
--- 		-- end
-		
--- 		return result
--- 	end;
--- }
-
-aura_env.commands.notecheck = {
-	match = {
-		"^!notecheck (.+)$";
-		"^!notecheck$";
-	};
+commands.notecheck = {
 	self = true;
-	func = function(msg)
-		if not msg then
+	func = function(self)
+		local msg = self.msgl
+		if not msg or msg == "" then
 			return "ERROR: invalid input"
 		end
 		if not _G.VExRT or not _G.VExRT.Note or not _G.VExRT.Note.Text1 then
@@ -840,171 +383,239 @@ aura_env.commands.notecheck = {
 	end;
 }
 
-aura_env.commands.magetower = {
-	match = {
-		"^!magetower$";
-	};
-	func = function()
-		local challenges = 0
-		
-		for i = 1, 7 do
-			local done = select(3, GetAchievementCriteriaInfo(15310, i, true))
-			if done then
-				challenges = challenges + 1
-			end
-		end
-		
-		local classes = 0
-		
-		-- 01 WARRIOR
-		-- 02 PALADIN
-		-- 03 HUNTER
-		-- 04 ROGUE
-		-- 05 PRIEST
-		-- 06 DEATHKNIGHT
-		-- 07 SHAMAN
-		-- 08 MAGE
-		-- 09 WARLOCK
-		-- 10 MONK
-		-- 11 DRUID
-		-- 12 DEMONHUNTER
-		
-		local t = {
-			52769; -- Warrior
-			52764; -- Paladin
-			52761; -- Hunter
-			52766; -- Rogue
-			52765; -- Priest
-			52758; -- Death Knight
-			52767; -- Shaman
-			52762; -- Mage
-			52768; -- Warlock
-			52763; -- Monk
-			52760; -- Druid
-			52759; -- Demon Hunter
-		}
-		for _, id in ipairs(t) do
-			local done = select(3, GetAchievementCriteriaInfoByID(15308, id))
-			if done then
-				classes = classes + 1
-			end
-		end
-		
-		-- head mogs
-		local mogIDs = {
-			188622; -- Warrior
-			188582; -- Paladin
-			188558; -- Hunter
-			188598; -- Rogue
-			188589; -- Priest
-			188534; -- Death Knight
-			188606; -- Shaman
-			188565; -- Mage
-			188613; -- Warlock
-			188574; -- Monk
-			188550; -- Druid
-			188542; -- Demon Hunter
-		}
-		
-		local mogs = 0
-		
-		for _, id in ipairs(mogIDs) do
-			if C_TransmogCollection.PlayerHasTransmog(id) then
-				mogs = mogs + 1
-			end
-		end
-		
-		local bear_done = select(3, GetAchievementCriteriaInfo(15312, 1, true))
-		
-		if bear_done then
-			mogs = mogs + 1
-		end
-		
-		do
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
+
+commands.renown = {
+	func = function(self)
+		local covID = C_Covenants.GetActiveCovenantID()
+		if not covID then
 			return
-				"Mage Tower:"
-				.. " " .. challenges .. "/7"
-				.. " (" .. mogs .. "/13 mogs, " .. classes .. "/12 classes)"
 		end
-		
-		
-		
-		
-		
-		-- local bear_done = select(3, GetAchievementCriteriaInfo(15312, 1, true))
-		
-		return
-			"Mage Tower: "
-			.. challenges .. "/7 challenges"
-			.. ", " .. classes .. "/12 classes"
-			-- .. " bear=" .. tostring(bear_done)
+		local covData = C_Covenants.GetCovenantData(covID)
+		if not covData then
+			return
+		end
+		local renown = C_CovenantSanctumUI.GetRenownLevel()
+		if not renown then
+			return
+		end
+		return "Renown: " .. tostring(renown) .. " (" .. tostring(covData.name) .. ")"
 	end;
 }
 
-aura_env.commands.flux = {
-	match = {
-		"^!flux$";
-	};
-	func = function()
-		local total = 0
-		
-		local info = C_CurrencyInfo.GetCurrencyInfo(2009--[[Cosmic Flux]])
-		if info and info.quantity then
-			total = total + info.quantity
+commands.conduits = {
+	func = function(self)
+		local specIndex = GetSpecialization()
+		if not specIndex then
+			return
 		end
 		
-		return string.format("Flux: %i", total)
-	end;
-}
-
-aura_env.commands.rep = {
-	match = {
-		"^!rep (.+)$";
-	};
-	func = function(msg)
-		local list = {}
-		
-		local index = 0
-		while true do
-			index = index + 1
-			local name, _, _, _, _, _, _, _, _, _, _, _, _, id = GetFactionInfo(index)
-			if not name then
-				break
-			end
-			table.insert(list, {
-				name = name;
-				id = id;
-			})
+		local specName = select(2, GetSpecializationInfo(specIndex))
+		if not specName then
+			return
 		end
 		
-		msg = msg:lower():gsub("[%p%s]", "")
+		local miss_all = 0
+		local miss_spec = 0
 		
-		for _, info in ipairs(list) do
-			local name = info.name:lower():gsub("[%p%s]", "")
-			local match = name:match(msg)
-			info.correct = 0
-			info.early = false
-			if match then
-				info.correct = #match / #name
-				if name:sub(1, #match) == match then
-					info.early = true
+		for conduit_type = 0, 3 do
+			local list = C_Soulbinds.GetConduitCollection(conduit_type)
+			for _, info in ipairs(list) do
+				local miss = 11 - (info.conduitRank or 0)
+				miss_all = miss_all + miss
+				if not info.conduitSpecName or info.conduitSpecName == specName then
+					miss_spec = miss_spec + miss
 				end
 			end
 		end
 		
-		table.sort(list, function(a, b)
-			if a.early ~= b.early then
-				return a.early and not b.early
-			elseif a.correct ~= b.correct then
-				return a.correct > b.correct
-			else
-				return a.name < b.name
-			end
-		end)
-		
-		local item = list[1]
-		if item and item.correct > 0 then
-			return getRepText(item.id)
+		return "[9.2] " .. specName .. ": " .. miss_spec .. ", All: " .. miss_all
+	end;
+}
+
+commands.flux = {
+	func = function(self)
+		local info = C_CurrencyInfo.GetCurrencyInfo(2009--[[Cosmic Flux]])
+		if not info then
+			return
 		end
+		return "Flux: " .. tostring(info.quantity)
+	end;
+}
+
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+
+local shardIDs = {
+	[187073] = "unholy11"; -- Shard of Dyz (Rank 1)
+	[187290] = "unholy12"; -- Shard of Dyz (Rank 2)
+	[187299] = "unholy13"; -- Shard of Dyz (Rank 3)
+	[187308] = "unholy14"; -- Shard of Dyz (Rank 4)
+	[187318] = "unholy15"; -- Shard of Dyz (Rank 5)
+	
+	[187079] = "unholy21"; -- Shard of Zed (Rank 1)
+	[187292] = "unholy22"; -- Shard of Zed (Rank 2)
+	[187301] = "unholy23"; -- Shard of Zed (Rank 3)
+	[187310] = "unholy24"; -- Shard of Zed (Rank 4)
+	[187320] = "unholy25"; -- Shard of Zed (Rank 5)
+	
+	[187076] = "unholy31"; -- Shard of Oth (Rank 1)
+	[187291] = "unholy32"; -- Shard of Oth (Rank 2)
+	[187300] = "unholy33"; -- Shard of Oth (Rank 3)
+	[187309] = "unholy34"; -- Shard of Oth (Rank 4)
+	[187319] = "unholy35"; -- Shard of Oth (Rank 5)
+	
+	[187063] = "frost11"; -- Shard of Cor (Rank 1)
+	[187287] = "frost12"; -- Shard of Cor (Rank 2)
+	[187296] = "frost13"; -- Shard of Cor (Rank 3)
+	[187305] = "frost14"; -- Shard of Cor (Rank 4)
+	[187315] = "frost15"; -- Shard of Cor (Rank 5)
+	
+	[187071] = "frost21"; -- Shard of Tel (Rank 1)
+	[187289] = "frost22"; -- Shard of Tel (Rank 2)
+	[187298] = "frost23"; -- Shard of Tel (Rank 3)
+	[187307] = "frost24"; -- Shard of Tel (Rank 4)
+	[187317] = "frost25"; -- Shard of Tel (Rank 5)
+	
+	[187065] = "frost31"; -- Shard of Kyr (Rank 1)
+	[187288] = "frost32"; -- Shard of Kyr (Rank 2)
+	[187297] = "frost33"; -- Shard of Kyr (Rank 3)
+	[187306] = "frost34"; -- Shard of Kyr (Rank 4)
+	[187316] = "frost35"; -- Shard of Kyr (Rank 5)
+	
+	[187057] = "blood11"; -- Shard of Bek (Rank 1)
+	[187284] = "blood12"; -- Shard of Bek (Rank 2)
+	[187293] = "blood13"; -- Shard of Bek (Rank 3)
+	[187302] = "blood14"; -- Shard of Bek (Rank 4)
+	[187312] = "blood15"; -- Shard of Bek (Rank 5)
+	
+	[187059] = "blood21"; -- Shard of Jas (Rank 1)
+	[187285] = "blood22"; -- Shard of Jas (Rank 2)
+	[187294] = "blood23"; -- Shard of Jas (Rank 3)
+	[187303] = "blood24"; -- Shard of Jas (Rank 4)
+	[187313] = "blood25"; -- Shard of Jas (Rank 5)
+	
+	[187061] = "blood31"; -- Shard of Rev (Rank 1)
+	[187286] = "blood32"; -- Shard of Rev (Rank 2)
+	[187295] = "blood33"; -- Shard of Rev (Rank 3)
+	[187304] = "blood34"; -- Shard of Rev (Rank 4)
+	[187314] = "blood35"; -- Shard of Rev (Rank 5)
+}
+
+local function getShards()
+	local shards = {}
+	
+	for itemID, name in pairs(shardIDs) do
+		local c = GetItemCount(itemID, true)
+		if c and c > 0 then
+			shards[name] = true
+		end
+	end
+	
+	local function process(itemLink)
+		if not itemLink then
+			return
+		end
+		local link = itemLink:match("|Hitem:(.-)|h")
+		if link then
+			local _, _, gem1, gem2, gem3 = strsplit(":", link)
+			local gems = {tonumber(gem1), tonumber(gem2), tonumber(gem3)}
+			for _, itemID in ipairs(gems) do
+				local name = shardIDs[itemID]
+				if name then
+					shards[name] = true
+				end
+			end
+		end
+	end
+	
+	for i = 1, 10 do
+		local itemLink = GetInventoryItemLink("player", i)
+		process(itemLink)
+	end
+	
+	for j = 0, 4 do
+		local n = GetContainerNumSlots(j)
+		for i = 1, n do
+			local itemLink = GetContainerItemLink(j, i)
+			process(itemLink)
+		end
+	end
+	
+	return shards
+end
+
+local function getShardInfo(name)
+	local shardType, shardIndex, shardRank = name:match("(%a+)(%d)(%d)")
+	return shardType, tonumber(shardIndex), tonumber(shardRank)
+end
+
+commands.shards = {
+	func = function(self)
+		local shards = getShards()
+		local ranks = {
+			unholy = {0, 0, 0};
+			frost = {0, 0, 0};
+			blood = {0, 0, 0};
+		}
+		
+		for name in pairs(shards) do
+			local shardType, shardIndex, shardRank = getShardInfo(name)
+			ranks[shardType][shardIndex] = shardRank
+		end
+		
+		return
+			"Unholy: " .. table.concat(ranks.unholy, " ") .. ", "
+			.. "Frost: " .. table.concat(ranks.frost, " ") .. ", "
+			.. "Blood: " .. table.concat(ranks.blood, " ")
+	end;
+}
+
+commands.embers = {
+	func = function(self)
+		local shards = getShards()
+		local total = 0
+		local cost = {
+			[1] = 0;
+			[2] = 5;
+			[3] = 5 + 15;
+			[4] = 5 + 15 + 30;
+			[5] = 5 + 15 + 30 + 50;
+		}
+		
+		local info = C_CurrencyInfo.GetCurrencyInfo(1977--[[Stygian Ember]])
+		if info and info.quantity then
+			total = total + info.quantity
+		end
+		
+		for name in pairs(shards) do
+			local shardType, shardIndex, shardRank = getShardInfo(name)
+			total = total + cost[shardRank]
+		end
+		
+		local t1 = time {year = 2021, month = 7, day = 7, hour = 9}
+		local t2 = GetServerTime()
+		local weeks = math.ceil((t2 - t1)/86400/7)
+		
+		return string.format("Embers: %i total, %.2f per week", total, total/weeks)
 	end;
 }
