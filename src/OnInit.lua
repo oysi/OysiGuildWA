@@ -1,12 +1,7 @@
 
 --[==============================================[
-	declarations
+	trigger
 ]==============================================]--
-
--- local notecheck_matches = {
--- 	{"\nchainOrder", "\nend"};
--- 	{"\nstartLine", "\nendLine"};
--- }
 
 function aura_env.trigger(event, ...)
 	local msg = ...
@@ -74,6 +69,10 @@ function aura_env.trigger(event, ...)
 		end
 	end
 end
+
+--[==============================================[
+	declarations
+]==============================================]--
 
 local notecheck_matches = {
 	-- SL -- SoD -- Kel'Thuzad

@@ -1,0 +1,1 @@
+(function() return function(...) aura_env.trigger(...) end end)()
