@@ -222,8 +222,8 @@ commands.magetower = {
 			end
 			if self.is_my then
 				print(
-					(achi and "|cFF00FF00" or "|cFFFF0000") .. "achi "
-					.. (mog and "|cFF00FF00" or "|cFFFF0000") .. "mog "
+					(mog and "|cFF00FF00" or "|cFFFF0000") .. "mog "
+					.. (achi and "|cFF00FF00" or "|cFFFF0000") .. "achi "
 					.. RAID_CLASS_COLORS[info[1]]:WrapTextInColorCode(info[2])
 				)
 			end
@@ -271,7 +271,7 @@ commands.notecheck = {
 		if first:sub(1, 2) == "p=" then
 			pattern = first:sub(3):gsub("\\n", "\n")
 		else
-			pattern = first .. "%s*(.-)\n%s*\n"
+			pattern = first .. "(.-)\n%s*\n"
 		end
 		
 		local t
@@ -450,6 +450,18 @@ commands.flux = {
 			return
 		end
 		return "Flux: " .. tostring(info.quantity)
+	end;
+}
+
+commands.fluxpenis = {
+	func = function(self)
+		local info = C_CurrencyInfo.GetCurrencyInfo(2009--[[Cosmic Flux]])
+		if not info then
+			return
+		end
+		local quantity = tonumber(info.quantity) or 0
+		return "8" .. ("="):rep(1 + math.floor(quantity)/2000) .. "D"
+		-- return "Flux: " .. tostring(info.quantity)
 	end;
 }
 
