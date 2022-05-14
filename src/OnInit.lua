@@ -47,6 +47,9 @@ function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 		end
 		is_my = true
 	end
+	if not aura_env.config[command.name] then
+		return
+	end
 	if (command.self or is_my) and not is_self then
 		return
 	end
@@ -631,3 +634,7 @@ commands.embers = {
 		return string.format("Embers: %i total, %.2f per week", total, total/weeks)
 	end;
 }
+
+for name, command in pairs(commands) do
+	command.name = name
+end
