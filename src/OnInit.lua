@@ -386,6 +386,100 @@ commands.notecheck = {
 	end;
 }
 
+commands.guids = {
+	self = true;
+	func = function(self)
+		local guids = {}
+		
+		local function add(unit)
+			local name = UnitName(unit)
+			local guid = UnitGUID(unit)
+			if name and guid then
+				guids[name] = guid
+			end
+		end
+		
+		add("player")
+		
+		if UnitInRaid("player") then
+			for i = 1, 40 do
+				add("raid" .. i)
+			end
+		elseif UnitInParty("player") then
+			for i = 1, 5 do
+				add("party" .. i)
+			end
+		end
+		
+		local list = {}
+		
+		for name, guid in pairs(guids) do
+			list[#list + 1] = {name, guid}
+		end
+		
+		table.sort(list, function(a, b) return a[2] < b[2] end)
+		
+		local disp = {}
+		
+		for i, v in ipairs(list) do
+			disp[#disp + 1] = v[1]
+		end
+		
+		return table.concat(disp, ", ")
+	end;
+}
+
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
+
+commands.penis = {
+	func = function(self)
+		return "8" .. ("="):rep(math.random(1, 20)) .. "D"
+	end;
+}
+
+commands.remornia = {
+	func = function(self)
+		local will_play, handle = PlaySound(161676, "MASTER")
+		if will_play then
+			C_Timer.After(1.2, function()
+				StopSound(handle)
+			end)
+		end
+	end;
+}
+
+commands.champions = {
+	func = function(self)
+		local will_play, handle = PlaySound(181890, "MASTER")
+		if will_play then
+			C_Timer.After(2.5, function()
+				StopSound(handle)
+			end)
+		end
+	end;
+}
+
+commands.nevamiss = {
+	func = function(self)
+		local will_play, handle = PlaySound(181474, "MASTER")
+		-- if will_play then
+		-- 	C_Timer.After(2.5, function()
+		-- 		StopSound(handle)
+		-- 	end)
+		-- end
+	end;
+}
+
 --?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
 --?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
 --?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
@@ -569,9 +663,9 @@ local function getShards()
 	end
 	
 	for j = 0, 4 do
-		local n = GetContainerNumSlots(j)
+		local n = C_Container.GetContainerNumSlots(j)
 		for i = 1, n do
-			local itemLink = GetContainerItemLink(j, i)
+			local itemLink = C_Container.GetContainerItemLink(j, i)
 			process(itemLink)
 		end
 	end
