@@ -396,18 +396,6 @@ commands.notecheck = {
 			result[#result + 1] = "Listed multiple times: " .. table.concat(t, ", ")
 		end
 		
-		-- unformatted
-		-- t = {}
-		-- for word in pairs(unformatted) do
-		-- 	if in_raid[word] then
-		-- 		table.insert(t, word)
-		-- 	end
-		-- end
-		-- if #t > 0 then
-		-- 	table.sort(t)
-		-- 	result[#result + 1] = "FORMATTING ERROR: " .. table.concat(t, ", ")
-		-- end
-		
 		return result
 	end;
 }
@@ -453,6 +441,27 @@ commands.guids = {
 		
 		return table.concat(disp, ", ")
 	end;
+}
+
+commands.quest = {
+	func = function(self)
+		local quest = self.msg:match("|Hquest(.-)|h");
+		local total = self.msg:match("|c........|Hquest.-|h.-|h|r");
+		if (quest and total) then
+			local _, questID = strsplit(":", quest);
+			questID = tonumber(questID);
+			if (questID) then
+				local title = C_QuestLog.GetTitleForQuestID(questID);
+				if (C_QuestLog.IsQuestFlaggedCompleted(questID)) then
+					return "Done " .. total;
+				elseif (C_QuestLog.IsOnQuest(questID)) then
+					return "In Progress " .. total;
+				else
+					return "Not Done " .. total;
+				end
+			end
+		end
+	end,
 }
 
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
@@ -553,27 +562,6 @@ commands.renown = {
 	end,
 }
 
-commands.quest = {
-	func = function(self)
-		local quest = self.msg:match("|Hquest(.-)|h");
-		local total = self.msg:match("|c........|Hquest.-|h.-|h|r");
-		if (quest and total) then
-			local _, questID = strsplit(":", quest);
-			questID = tonumber(questID);
-			if (questID) then
-				local title = C_QuestLog.GetTitleForQuestID(questID);
-				if (C_QuestLog.IsQuestFlaggedCompleted(questID)) then
-					return "Done " .. total;
-				elseif (C_QuestLog.IsOnQuest(questID)) then
-					return "In Progress " .. total;
-				else
-					return "Not Done " .. total;
-				end
-			end
-		end
-	end,
-}
-
 --?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--
 --?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--
 --?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--
@@ -582,184 +570,8 @@ commands.quest = {
 --!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
 --!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
 
-commands.conduits = {
-	func = function(self)
-		local specIndex = GetSpecialization()
-		if not specIndex then
-			return
-		end
-		
-		local specName = select(2, GetSpecializationInfo(specIndex))
-		if not specName then
-			return
-		end
-		
-		local miss_all = 0
-		local miss_spec = 0
-		
-		for conduit_type = 0, 3 do
-			local list = C_Soulbinds.GetConduitCollection(conduit_type)
-			for _, info in ipairs(list) do
-				local miss = 11 - (info.conduitRank or 0)
-				miss_all = miss_all + miss
-				if not info.conduitSpecName or info.conduitSpecName == specName then
-					miss_spec = miss_spec + miss
-				end
-			end
-		end
-		
-		return "[9.2] " .. specName .. ": " .. miss_spec .. ", All: " .. miss_all
-	end;
-}
 
-commands.flux = {
-	func = function(self)
-		local info = C_CurrencyInfo.GetCurrencyInfo(2009--[[Cosmic Flux]])
-		if not info then
-			return
-		end
-		return "Flux: " .. tostring(info.quantity)
-	end;
-}
-
-commands.fluxpenis = {
-	func = function(self)
-		local info = C_CurrencyInfo.GetCurrencyInfo(2009--[[Cosmic Flux]])
-		if not info then
-			return
-		end
-		local quantity = tonumber(info.quantity) or 0
-		return "8" .. ("="):rep(1 + math.floor(quantity)/2000) .. "D"
-		-- return "Flux: " .. tostring(info.quantity)
-	end;
-}
-
-
-local shardIDs = {
-	[187073] = "unholy11"; -- Shard of Dyz (Rank 1)
-	[187290] = "unholy12"; -- Shard of Dyz (Rank 2)
-	[187299] = "unholy13"; -- Shard of Dyz (Rank 3)
-	[187308] = "unholy14"; -- Shard of Dyz (Rank 4)
-	[187318] = "unholy15"; -- Shard of Dyz (Rank 5)
-	
-	[187079] = "unholy21"; -- Shard of Zed (Rank 1)
-	[187292] = "unholy22"; -- Shard of Zed (Rank 2)
-	[187301] = "unholy23"; -- Shard of Zed (Rank 3)
-	[187310] = "unholy24"; -- Shard of Zed (Rank 4)
-	[187320] = "unholy25"; -- Shard of Zed (Rank 5)
-	
-	[187076] = "unholy31"; -- Shard of Oth (Rank 1)
-	[187291] = "unholy32"; -- Shard of Oth (Rank 2)
-	[187300] = "unholy33"; -- Shard of Oth (Rank 3)
-	[187309] = "unholy34"; -- Shard of Oth (Rank 4)
-	[187319] = "unholy35"; -- Shard of Oth (Rank 5)
-	
-	[187063] = "frost11"; -- Shard of Cor (Rank 1)
-	[187287] = "frost12"; -- Shard of Cor (Rank 2)
-	[187296] = "frost13"; -- Shard of Cor (Rank 3)
-	[187305] = "frost14"; -- Shard of Cor (Rank 4)
-	[187315] = "frost15"; -- Shard of Cor (Rank 5)
-	
-	[187071] = "frost21"; -- Shard of Tel (Rank 1)
-	[187289] = "frost22"; -- Shard of Tel (Rank 2)
-	[187298] = "frost23"; -- Shard of Tel (Rank 3)
-	[187307] = "frost24"; -- Shard of Tel (Rank 4)
-	[187317] = "frost25"; -- Shard of Tel (Rank 5)
-	
-	[187065] = "frost31"; -- Shard of Kyr (Rank 1)
-	[187288] = "frost32"; -- Shard of Kyr (Rank 2)
-	[187297] = "frost33"; -- Shard of Kyr (Rank 3)
-	[187306] = "frost34"; -- Shard of Kyr (Rank 4)
-	[187316] = "frost35"; -- Shard of Kyr (Rank 5)
-	
-	[187057] = "blood11"; -- Shard of Bek (Rank 1)
-	[187284] = "blood12"; -- Shard of Bek (Rank 2)
-	[187293] = "blood13"; -- Shard of Bek (Rank 3)
-	[187302] = "blood14"; -- Shard of Bek (Rank 4)
-	[187312] = "blood15"; -- Shard of Bek (Rank 5)
-	
-	[187059] = "blood21"; -- Shard of Jas (Rank 1)
-	[187285] = "blood22"; -- Shard of Jas (Rank 2)
-	[187294] = "blood23"; -- Shard of Jas (Rank 3)
-	[187303] = "blood24"; -- Shard of Jas (Rank 4)
-	[187313] = "blood25"; -- Shard of Jas (Rank 5)
-	
-	[187061] = "blood31"; -- Shard of Rev (Rank 1)
-	[187286] = "blood32"; -- Shard of Rev (Rank 2)
-	[187295] = "blood33"; -- Shard of Rev (Rank 3)
-	[187304] = "blood34"; -- Shard of Rev (Rank 4)
-	[187314] = "blood35"; -- Shard of Rev (Rank 5)
-}
-
-local function getShards()
-	local shards = {}
-	
-	for itemID, name in pairs(shardIDs) do
-		local c = GetItemCount(itemID, true)
-		if c and c > 0 then
-			shards[name] = true
-		end
-	end
-	
-	local function process(itemLink)
-		if not itemLink then
-			return
-		end
-		local link = itemLink:match("|Hitem:(.-)|h")
-		if link then
-			local _, _, gem1, gem2, gem3 = strsplit(":", link)
-			local gems = {tonumber(gem1), tonumber(gem2), tonumber(gem3)}
-			for _, itemID in ipairs(gems) do
-				local name = shardIDs[itemID]
-				if name then
-					shards[name] = true
-				end
-			end
-		end
-	end
-	
-	for i = 1, 10 do
-		local itemLink = GetInventoryItemLink("player", i)
-		process(itemLink)
-	end
-	
-	for j = 0, 4 do
-		local n = C_Container.GetContainerNumSlots(j)
-		for i = 1, n do
-			local itemLink = C_Container.GetContainerItemLink(j, i)
-			process(itemLink)
-		end
-	end
-	
-	return shards
-end
-
-local function getShardInfo(name)
-	local shardType, shardIndex, shardRank = name:match("(%a+)(%d)(%d)")
-	return shardType, tonumber(shardIndex), tonumber(shardRank)
-end
-
-commands.shards = {
-	func = function(self)
-		local shards = getShards()
-		local ranks = {
-			unholy = {0, 0, 0};
-			frost = {0, 0, 0};
-			blood = {0, 0, 0};
-		}
-		
-		for name in pairs(shards) do
-			local shardType, shardIndex, shardRank = getShardInfo(name)
-			ranks[shardType][shardIndex] = shardRank
-		end
-		
-		return
-			"Unholy: " .. table.concat(ranks.unholy, " ") .. ", "
-			.. "Frost: " .. table.concat(ranks.frost, " ") .. ", "
-			.. "Blood: " .. table.concat(ranks.blood, " ")
-	end;
-}
-
+-- preprocess
 for name, command in pairs(commands) do
 	command.name = name
 end
