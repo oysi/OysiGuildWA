@@ -96,6 +96,32 @@ end
 ]==============================================]--
 
 local function get_rep_text(factionID)
+	-- major faction
+	local info = C_MajorFactions.GetMajorFactionData(factionID);
+	if (info and info.name) then
+		if (not info.renownLevelThreshold) then
+			return info.name .. ": Renown " .. info.renownLevel
+		end
+		local cur = info.renownReputationEarned;
+		local max = info.renownLevelThreshold;
+		return
+			info.name .. ": Renown " .. info.renownLevel
+			.. " (" .. BreakUpLargeNumbers(cur) .. " / " .. BreakUpLargeNumbers(max) .. ")";
+	end
+	
+	-- friendship
+	local info = C_GossipInfo.GetFriendshipReputation(factionID);
+	if (info and info.name) then
+		if (not info.nextThreshold) then
+			return info.name .. ": " .. info.reaction
+		end
+		local cur = info.standing - info.reactionThreshold;
+		local max = info.nextThreshold - info.reactionThreshold;
+		return
+			info.name .. ": " .. info.reaction
+			.. " (" .. BreakUpLargeNumbers(cur) .. " / " .. BreakUpLargeNumbers(max) .. ")";
+	end
+	
 	local name, _, standingID, bar_min, bar_max, bar_val = GetFactionInfoByID(factionID)
 	if not name then
 		return
@@ -104,7 +130,7 @@ local function get_rep_text(factionID)
 	local min = bar_val - bar_min
 	local max = bar_max - bar_min
 	
-	local friendID, _, _, friendName, _, _, friendTextLevel = GetFriendshipReputation(factionID)
+	local friendID, _, _, friendName, _, _, friendTextLevel = C_GossipInfo.GetFriendshipReputation(factionID)
 	
 	local disp_name = friendID and friendName or name
 	local disp_standing = friendID and friendTextLevel or _G["FACTION_STANDING_LABEL" .. standingID] or standingID
@@ -433,82 +459,128 @@ commands.guids = {
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 
---?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
---?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
---?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
-
---?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
---?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
---?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
-
-commands.penis = {
+commands.renownpenis = {
 	func = function(self)
-		return "8" .. ("="):rep(math.random(1, 20)) .. "D"
-	end;
-}
-
-commands.remornia = {
-	func = function(self)
-		local will_play, handle = PlaySound(161676, "MASTER")
-		if will_play then
-			C_Timer.After(1.2, function()
-				StopSound(handle)
-			end)
+		local ids = C_MajorFactions.GetMajorFactionIDs();
+		if (not ids) then
+			return;
 		end
-	end;
-}
-
-commands.champions = {
-	func = function(self)
-		local will_play, handle = PlaySound(181890, "MASTER")
-		if will_play then
-			C_Timer.After(2.5, function()
-				StopSound(handle)
-			end)
+		local size = 0;
+		for _, id in ipairs(ids) do
+			local info = C_MajorFactions.GetMajorFactionData(id);
+			if (info and info.isUnlocked) then
+				size = size + info.renownLevel;
+			end
 		end
-	end;
+		return "8" .. ("="):rep(1 + size*0.25) .. "D";
+	end,
 }
 
-commands.nevamiss = {
+--?--BELOW IS DRAGONFLIGHT--?--BELOW IS DRAGONFLIGHT--?--BELOW IS DRAGONFLIGHT--?--
+--?--BELOW IS DRAGONFLIGHT--?--BELOW IS DRAGONFLIGHT--?--BELOW IS DRAGONFLIGHT--?--
+--?--BELOW IS DRAGONFLIGHT--?--BELOW IS DRAGONFLIGHT--?--BELOW IS DRAGONFLIGHT--?--
+
+commands.hunts = {
 	func = function(self)
-		local will_play, handle = PlaySound(181474, "MASTER")
-		-- if will_play then
-		-- 	C_Timer.After(2.5, function()
-		-- 		StopSound(handle)
-		-- 	end)
-		-- end
-	end;
+		local info = C_MajorFactions.GetMajorFactionData(2503--[[Maruuk Centaur]]);
+		if (not info) then
+			return;
+		end
+		
+			-- ripped from https://wago.io/rcYyjlfq6/1 pls dont sue
+			local goal = 25
+			
+			local factionInfo = C_MajorFactions.GetMajorFactionData(2503)
+			local renownLevel = factionInfo.renownLevel
+			local earnedAtThisLevel = factionInfo.renownReputationEarned
+			
+			local totalEarned = (renownLevel * 2500) + earnedAtThisLevel 
+			local totalGoal = 2500 * goal
+			
+			local bags = GetItemCount(200516, true)
+			local trophies = GetItemCount(200093, true)
+			local totalTrophies = (bags * 4) + trophies
+			local reputationInBags = totalTrophies * (550/20)
+			local totalEarnedWithBags = totalEarned + reputationInBags
+			
+			local totalTodo = totalGoal - totalEarnedWithBags    
+			local repPerHunt = 15*6 + ((550/20) * 4)
+			
+			local numHuntsLeft = totalTodo / repPerHunt
+			
+			-- 	return ("Renown %s - %s/2500\nWith bags: %s - %s/2500\nHunts to do to get to %s: %s"):format(
+			-- 		renownLevel,
+			-- 		earnedAtThisLevel,
+			-- 		math.floor(totalEarnedWithBags / 2500),
+			-- 		totalEarnedWithBags % 2500,
+			-- 		goal,
+			-- 		math.ceil(numHuntsLeft)
+			-- 	)
+		
+		return "Missing: " .. math.ceil(numHuntsLeft) .. " hunts";
+	end,
 }
-
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
-
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
-
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
---?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--BELOW IS EXPANSION--?--
 
 commands.renown = {
 	func = function(self)
-		local covID = C_Covenants.GetActiveCovenantID()
-		if not covID then
-			return
+		local ids = C_MajorFactions.GetMajorFactionIDs();
+		if (not ids) then
+			return;
 		end
-		local covData = C_Covenants.GetCovenantData(covID)
-		if not covData then
-			return
+		local data = {}
+		for _, id in ipairs(ids) do
+			local info = C_MajorFactions.GetMajorFactionData(id);
+			if (info and info.isUnlocked) then
+				table.insert(data, info);
+			end
 		end
-		local renown = C_CovenantSanctumUI.GetRenownLevel()
-		if not renown then
-			return
+		local order = {
+			[2507] = 1,
+			[2503] = 2,
+			[2511] = 3,
+			[2510] = 4,
+		};
+		table.sort(data, function(a, b)
+			return (order[a.factionID] or a.factionID) < (order[b.factionID] or b.factionID);
+		end);
+		local total = 0
+		local result = {}
+		for _, info in ipairs(data) do
+			total = total + info.renownLevel;
+			table.insert(result, info.renownLevel);
 		end
-		return "Renown: " .. tostring(renown) .. " (" .. tostring(covData.name) .. ")"
-	end;
+		return "Renown: " .. table.concat(result, ", ");
+	end,
 }
+
+commands.quest = {
+	func = function(self)
+		local quest = self.msg:match("|Hquest(.-)|h");
+		local total = self.msg:match("|c........|Hquest.-|h.-|h|r");
+		if (quest and total) then
+			local _, questID = strsplit(":", quest);
+			questID = tonumber(questID);
+			if (questID) then
+				local title = C_QuestLog.GetTitleForQuestID(questID);
+				if (C_QuestLog.IsQuestFlaggedCompleted(questID)) then
+					return "Done " .. total;
+				elseif (C_QuestLog.IsOnQuest(questID)) then
+					return "In Progress " .. total;
+				else
+					return "Not Done " .. total;
+				end
+			end
+		end
+	end,
+}
+
+--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--
+--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--
+--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--BELOW IS SHADOWLANDS--?--
+
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
 
 commands.conduits = {
 	func = function(self)
@@ -562,17 +634,6 @@ commands.fluxpenis = {
 	end;
 }
 
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
-
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
-
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
---!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
 
 local shardIDs = {
 	[187073] = "unholy11"; -- Shard of Dyz (Rank 1)
@@ -696,36 +757,6 @@ commands.shards = {
 			"Unholy: " .. table.concat(ranks.unholy, " ") .. ", "
 			.. "Frost: " .. table.concat(ranks.frost, " ") .. ", "
 			.. "Blood: " .. table.concat(ranks.blood, " ")
-	end;
-}
-
-commands.embers = {
-	func = function(self)
-		local shards = getShards()
-		local total = 0
-		local cost = {
-			[1] = 0;
-			[2] = 5;
-			[3] = 5 + 15;
-			[4] = 5 + 15 + 30;
-			[5] = 5 + 15 + 30 + 50;
-		}
-		
-		local info = C_CurrencyInfo.GetCurrencyInfo(1977--[[Stygian Ember]])
-		if info and info.quantity then
-			total = total + info.quantity
-		end
-		
-		for name in pairs(shards) do
-			local shardType, shardIndex, shardRank = getShardInfo(name)
-			total = total + cost[shardRank]
-		end
-		
-		local t1 = time {year = 2021, month = 7, day = 7, hour = 9}
-		local t2 = GetServerTime()
-		local weeks = math.ceil((t2 - t1)/86400/7)
-		
-		return string.format("Embers: %i total, %.2f per week", total, total/weeks)
 	end;
 }
 
