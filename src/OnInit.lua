@@ -1,4 +1,7 @@
 
+local MAJOR = "OysiGuildWA-1.0"
+local MINOR = 1
+
 --[==============================================[
 	trigger
 ]==============================================]--
@@ -95,6 +98,8 @@ end
 	lib
 ]==============================================]--
 
+local lib = {};
+
 local function get_rep_text(factionID)
 	-- major faction
 	local info = C_MajorFactions.GetMajorFactionData(factionID);
@@ -141,6 +146,18 @@ local function get_rep_text(factionID)
 		str = str .. " (" .. BreakUpLargeNumbers(min) .. " / " .. BreakUpLargeNumbers(max) .. ")"
 	end
 	return str
+end
+
+function lib.tstr(t)
+	if t < 60 then
+		return string.format("%is", t)
+	elseif t < 3600 then
+		return string.format("%im %is", t/60, t%60)
+	elseif t < 86400 then
+		return string.format("%ih %im %is", t/3600, t/60%60, t%60)
+	else
+		return string.format("%id %ih %im %is", t/86400, t/3600%24, t/60%60, t%60)
+	end
 end
 
 --[==============================================[
@@ -468,6 +485,60 @@ commands.quest = {
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 
+commands.soup = {
+	self = true,
+	func = function(self)
+		local dif = time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0} - GetServerTime();
+		
+		local sec_until = dif%(60*60*3.5);
+		local sec_since = 60*60*3.5 - sec_until;
+		
+		local sec_end = 15*60 - sec_since;
+		if (sec_end > 0) then
+			return "Soup ends in " .. lib.tstr(sec_end);
+		end
+		
+		local sec_start = sec_until;
+		if (sec_start > 0) then
+			return "Soup starts in " .. lib.tstr(sec_start);
+		end
+		
+		return "something went wrong";
+	end,
+}
+
+commands.siege = {
+	self = true,
+	func = function(self)
+		local dif = time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0} - GetServerTime();
+		
+		local sec_until = dif%(60*60*2);
+		local sec_since = 60*60*2 - sec_until;
+		
+		return "Siege started " .. lib.tstr(sec_since) .. " ago, next siege in " .. lib.tstr(sec_until);
+	end,
+}
+
+commands.malware = {
+	func = function(self)
+		return "v" .. MINOR;
+	end,
+}
+
+commands.rarehp = {
+	func = function(self)
+		local unitID = "target";
+		local cid = UnitClassification(unitID);
+		if (UnitIsQuestBoss(unitID)) then
+			cid = "questboss";
+		end
+		if (cid == "worldboss" or cid == "rareelite" or cid == "rare" or cid == "questboss") then
+			local t = (UnitHealth(unitID) or 0) / (UnitHealthMax(unitID) or 1);
+			return math.ceil(t*100) .. "% [" .. cid .. "] " .. UnitName(unitID);
+		end
+	end,
+}
+
 commands.renownpenis = {
 	func = function(self)
 		local ids = C_MajorFactions.GetMajorFactionIDs();
@@ -569,7 +640,6 @@ commands.renown = {
 --!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
 --!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
 --!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
-
 
 -- preprocess
 for name, command in pairs(commands) do
