@@ -1,6 +1,6 @@
 
 local MAJOR = "OysiGuildWA-1.0"
-local MINOR = 1
+local MINOR = 12
 
 --[==============================================[
 	trigger
@@ -42,9 +42,9 @@ function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	local is_self = guid == UnitGUID("player")
 	
 	-- get command
-	local command, args = get_command(msg, "^!(%a+) ?(.*)$")
+	local command, args = get_command(msg, "^!([%a%p]+) ?(.*)$")
 	if not command then
-		command, args = get_command(msg, "^[!#]my(%a+) ?(.*)$")
+		command, args = get_command(msg, "^[!#]my([%a%p]+) ?(.*)$")
 		if not command then
 			return
 		end
@@ -86,7 +86,7 @@ function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	end
 	
 	for i, sub in ipairs(output) do
-		C_Timer.After((i - 1)*0.25, function()
+		C_Timer.After((i - 1)*0.1, function()
 			SendChatMessage(sub, channel)
 		end)
 	end
@@ -481,6 +481,114 @@ commands.quest = {
 	end,
 }
 
+-- commands.keys = {
+-- 	func = function(self)
+-- 		local cmapID = C_MythicPlus.GetOwnedKeystoneChallengeMapID();
+-- 		local level = C_MythicPlus.GetOwnedKeystoneLevel();
+		
+-- 		if (not (cmapID and level and level > 1)) then
+-- 			return "[no keystone]";
+-- 		end
+		
+-- 		local name = C_ChallengeMode.GetMapUIInfo(cmapID);
+-- 		if (not name) then
+-- 			name = "cmapID:" .. cmapID .. "";
+-- 		end
+		
+-- 		return "+" .. level .. " [" .. name .. "]";
+-- 	end,
+-- }
+
+commands.vault = {
+	self = true,
+	func = function(self)
+		local hist = C_MythicPlus.GetRunHistory(false, true);
+		
+		table.sort(hist, function(a, b)
+			if (a.level ~= b.level) then
+				return a.level > b.level;
+			else
+				return a.mapChallengeModeID < b.mapChallengeModeID;
+			end
+		end);
+		
+		local function get_best(n)
+			local info = {level = math.huge};
+			if (n <= #hist) then
+				for i = 1, n do
+					local level = hist[i].level;
+					if (level < info.level) then
+						info.level = level;
+					end
+				end
+			else
+				info.level = 0;
+			end
+			info.vault = C_MythicPlus.GetRewardLevelFromKeystoneLevel(info.level);
+			return info;
+		end
+		
+		local list = {
+			get_best(1),
+			get_best(4),
+			get_best(8),
+		};
+		
+		for i, v in ipairs(list) do
+			list[i] = "(+" .. v.level .. ")";
+		end
+		
+		return table.concat(list, " ");
+	end,
+};
+
+commands.reward = {
+	self = true,
+	func = function(self)
+		local a, b = self.msgl:match("%+?(%-?%d+)%s*%-%s*%+?(%-?%d+)");
+		if (not a) then
+			a, b = self.msgl:match("%+?(%-?%d+)%s*to%s*%+?(%-?%d+)");
+		end
+		if (not a) then
+			a = self.msgl:match("%+?(%-?%d+)");
+		end
+		
+		a = tonumber(a);
+		b = tonumber(b) or a;
+		
+		if (not a) then
+			return;
+		end
+		
+		local list = {};
+		
+		local vault_done = {};
+		local chest_done = {};
+		
+		local step = b >= a and 1 or -1;
+		
+		for level = a, b, step do
+			local vault, chest = C_MythicPlus.GetRewardLevelForDifficultyLevel(level);
+			if ((vault ~= 0 and chest ~= 0) and (not vault_done[vault] or not chest_done[chest])) then
+				vault_done[vault] = true;
+				chest_done[chest] = true;
+				
+				table.insert(list, {
+					level = level;
+					vault = vault;
+					chest = chest;
+				});
+			end
+		end
+		
+		for i, v in ipairs(list) do
+			list[i] = "+" .. v.level .. " = " .. v.chest .. " (" .. v.vault .. ")";
+		end
+		
+		return list;
+	end,
+};
+
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
@@ -488,7 +596,9 @@ commands.quest = {
 commands.soup = {
 	self = true,
 	func = function(self)
-		local dif = time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0} - GetServerTime();
+		-- time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0}
+		-- 1670522400
+		local dif = 1670522400 - GetServerTime();
 		
 		local sec_until = dif%(60*60*3.5);
 		local sec_since = 60*60*3.5 - sec_until;
@@ -510,7 +620,9 @@ commands.soup = {
 commands.siege = {
 	self = true,
 	func = function(self)
-		local dif = time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0} - GetServerTime();
+		-- time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0}
+		-- 1670522400
+		local dif = 1670522400 - GetServerTime();
 		
 		local sec_until = dif%(60*60*2);
 		local sec_since = 60*60*2 - sec_until;
@@ -597,7 +709,7 @@ commands.hunts = {
 			-- 		math.ceil(numHuntsLeft)
 			-- 	)
 		
-		return "Missing: " .. math.ceil(numHuntsLeft) .. " hunts";
+		return "Missing: " .. math.ceil(math.max(numHuntsLeft, 0)) .. " hunts";
 	end,
 }
 
