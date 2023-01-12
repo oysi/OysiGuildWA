@@ -1,6 +1,6 @@
 
 local MAJOR = "OysiGuildWA-1.0"
-local MINOR = 12
+local MINOR = 23
 
 --[==============================================[
 	trigger
@@ -13,7 +13,7 @@ local function get_command(msg, pattern)
 	if not name then
 		return
 	end
-	return commands[name], args
+	return commands[name:lower()], args
 end
 
 local last_time = 0
@@ -42,13 +42,17 @@ function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	local is_self = guid == UnitGUID("player")
 	
 	-- get command
-	local command, args = get_command(msg, "^!([%a%p]+) ?(.*)$")
-	if not command then
-		command, args = get_command(msg, "^[!#]my([%a%p]+) ?(.*)$")
-		if not command then
-			return
+	local command, args = get_command(msg, "^!([%a%p]+) ?(.*)$");
+	if (not command) then
+		command, args = get_command(msg, "^[!#]my([%a%p]+) ?(.*)$");
+		if (command) then
+			is_my = true;
+		else
+			command, args = get_command(msg, "^[!#]" .. UnitName("player"):lower() .. "([%a%p]+) ?(.*)$");
+			if (not command) then
+				return;
+			end
 		end
-		is_my = true
 	end
 	if not aura_env.config[command.name] then
 		return
@@ -499,43 +503,59 @@ commands.quest = {
 -- 	end,
 -- }
 
+-- commands.vault = {
+-- 	self = true,
+-- 	func = function(self)
+-- 		local hist = C_MythicPlus.GetRunHistory(false, true);
+		
+-- 		table.sort(hist, function(a, b)
+-- 			if (a.level ~= b.level) then
+-- 				return a.level > b.level;
+-- 			else
+-- 				return a.mapChallengeModeID < b.mapChallengeModeID;
+-- 			end
+-- 		end);
+		
+-- 		local function get_best(n)
+-- 			local info = {level = math.huge};
+-- 			if (n <= #hist) then
+-- 				for i = 1, n do
+-- 					local level = hist[i].level;
+-- 					if (level < info.level) then
+-- 						info.level = level;
+-- 					end
+-- 				end
+-- 			else
+-- 				info.level = 0;
+-- 			end
+-- 			info.vault = C_MythicPlus.GetRewardLevelFromKeystoneLevel(info.level);
+-- 			return info;
+-- 		end
+		
+-- 		local list = {
+-- 			get_best(1),
+-- 			get_best(4),
+-- 			get_best(8),
+-- 		};
+		
+-- 		for i, v in ipairs(list) do
+-- 			list[i] = "(+" .. v.level .. ")";
+-- 		end
+		
+-- 		return table.concat(list, " ");
+-- 	end,
+-- };
+
 commands.vault = {
 	self = true,
 	func = function(self)
-		local hist = C_MythicPlus.GetRunHistory(false, true);
+		local list = {};
 		
-		table.sort(hist, function(a, b)
-			if (a.level ~= b.level) then
-				return a.level > b.level;
-			else
-				return a.mapChallengeModeID < b.mapChallengeModeID;
+		local activities = C_WeeklyRewards.GetActivities();
+		for i, v in ipairs(activities) do
+			if (v.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
+				list[v.index] = "(+" .. v.level .. ")";
 			end
-		end);
-		
-		local function get_best(n)
-			local info = {level = math.huge};
-			if (n <= #hist) then
-				for i = 1, n do
-					local level = hist[i].level;
-					if (level < info.level) then
-						info.level = level;
-					end
-				end
-			else
-				info.level = 0;
-			end
-			info.vault = C_MythicPlus.GetRewardLevelFromKeystoneLevel(info.level);
-			return info;
-		end
-		
-		local list = {
-			get_best(1),
-			get_best(4),
-			get_best(8),
-		};
-		
-		for i, v in ipairs(list) do
-			list[i] = "(+" .. v.level .. ")";
 		end
 		
 		return table.concat(list, " ");
@@ -593,6 +613,63 @@ commands.reward = {
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 --?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--BELOW IS FLUFF--?--
 
+-- commands.whelp = {
+-- 	func = function(self)
+-- 		local ids = {
+-- 			[2148] = "st",
+-- 			[2149] = "aoe",
+-- 			[2150] = "heal",
+-- 			[2151] = "heal",
+-- 			[2152] = "crit",
+-- 			[2153] = "haste",
+-- 		};
+		
+-- 		local total = 0;
+		
+-- 		local buffs = {}
+-- 		for id, name in pairs(ids) do
+-- 			local info = C_CurrencyInfo.GetCurrencyInfo(id);
+-- 			buffs[name] = (buffs[name] or 0) + info.quantity;
+-- 		end
+		
+-- 		local result = {};
+-- 		for name, count in pairs(buffs) do
+-- 			if (count > 0) then
+-- 				total = total + count;
+-- 				table.insert(result, count .. " " .. name);
+-- 			end
+-- 		end
+		
+-- 		return "(" .. total .. "/6) " .. table.concat(result, ", ");
+-- 	end,
+-- };
+
+commands.whelp = {
+	func = function(self)
+		local ids = {
+			{id = 2148, name = "st"     },
+			{id = 2149, name = "aoe"    },
+			{id = 2152, name = "crit"   },
+			{id = 2153, name = "haste"  },
+			{id = 2151, name = "stheal" },
+			{id = 2150, name = "aoeheal"},
+		};
+		
+		local total = 0;
+		local result = {};
+		
+		for _, data in ipairs(ids) do
+			local info = C_CurrencyInfo.GetCurrencyInfo(data.id);
+			if (info.quantity > 0) then
+				total = total + info.quantity;
+				table.insert(result, info.quantity .. " " .. data.name);
+			end
+		end
+		
+		return "(" .. total .. "/6) " .. table.concat(result, ", ");
+	end,
+};
+
 commands.soup = {
 	self = true,
 	func = function(self)
@@ -630,6 +707,26 @@ commands.siege = {
 		return "Siege started " .. lib.tstr(sec_since) .. " ago, next siege in " .. lib.tstr(sec_until);
 	end,
 }
+
+commands.soupsiege = {
+	self = true,
+	func = function(self)
+		return {
+			commands.soup.func(self),
+			commands.siege.func(self),
+		}
+	end,
+};
+
+commands.siegesoup = {
+	self = true,
+	func = function(self)
+		return {
+			commands.siege.func(self),
+			commands.soup.func(self),
+		}
+	end,
+};
 
 commands.malware = {
 	func = function(self)
