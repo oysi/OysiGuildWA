@@ -1,12 +1,254 @@
 
-local MAJOR = "OysiGuildWA-1.0"
-local MINOR = 23
+local MAJOR = "OysiGuildWA-1.0";
+local MINOR = "v34 (beta)";
 
 --[==============================================[
-	trigger
+	declarations
 ]==============================================]--
 
-local commands = {}
+local env = aura_env;
+
+env.events = {};
+env.commands = {};
+
+env.time = 0;
+
+-- C_WeeklyRewards.OnUIInteract(); -- request threhsolds
+C_MythicPlus.RequestMapInfo(); -- request run history
+
+--[==============================================[
+	events
+]==============================================]--
+
+function env.events.CHAT_MSG_GUILD(...)
+	env.command("GUILD", ...);
+end
+
+function env.events.CHAT_MSG_RAID(...)
+	env.command("RAID", ...);
+end
+
+function env.events.CHAT_MSG_RAID_LEADER(...)
+	env.command("RAID", ...);
+end
+
+function env.events.CHAT_MSG_PARTY(...)
+	env.command("PARTY", ...);
+end
+
+function env.events.CHAT_MSG_PARTY_LEADER(...)
+	env.command("PARTY", ...);
+end
+
+function env.events.CHALLENGE_MODE_COMPLETED()
+	C_MythicPlus.RequestMapInfo();
+end
+
+function env.OnEvent(event, ...)
+	if (env.events[event]) then
+		env.events[event](...);
+	end
+end
+
+--[==============================================[
+	Info
+]==============================================]--
+
+local Info = {};
+
+function Info:send(result)
+	if (type(result) == "string") then
+		result = {result};
+	elseif (type(result) ~= "table") then
+		return;
+	end
+	local output = {};
+	for i = 1, #result do
+		local val = tostring(result[i]);
+		if (#val <= 255) then
+			table.insert(output, val);
+		else
+			local s = 255 + 1 - (val:sub(1, 255):reverse():find(" ") or 1);
+			table.insert(output, val:sub(1, s));
+			table.insert(output, val:sub(s + 1));
+		end
+	end
+	for i, str in ipairs(output) do
+		C_Timer.After((i - 1)*0.1, function()
+			SendChatMessage(str, self.channel);
+		end);
+	end
+end
+
+--[==============================================[
+	command
+]==============================================]--
+
+function env.command(channel, msg, _, _, _, _, _, _, _, _, _, _, guid)
+	if (not env.config[channel]) then
+		return;
+	end
+	
+	local ctime = GetServerTime();
+	if (ctime - env.time < 1) then
+		return;
+	end
+	
+	local name, args = msg:match("^!(%a+) ?(.*)$");
+	if (not name) then
+		return;
+	end
+	
+	local is_self = guid == UnitGUID("player");
+	
+	name = name:lower();
+	
+	if (name:sub(1, 2) == "my") then
+		if (not is_self) then
+			return;
+		end
+		name = name:sub(3);
+	end
+	
+	local pname = UnitName("player"):lower();
+	if (name:sub(1, #pname) == pname) then
+		name = name:sub(#pname + 1);
+	end
+	
+	local command = env.commands[name];
+	if (not command) then
+		return;
+	end
+	
+	if not env.config[name] then
+		return
+	end
+	
+	local info = {};
+	for i, v in pairs(Info) do
+		info[i] = v;
+	end
+	
+	info.msg = args;
+	info.msgl = args:lower();
+	
+	info.is_self = is_self;
+	info.channel = channel;
+	
+	local result = command(info);
+	
+	info:send(result);
+	
+	env.time = ctime;
+end
+
+--[==============================================[
+	general commands
+]==============================================]--
+
+function env.commands:vault()
+	if (not self.is_self) then
+		return;
+	end
+	if (self.msg ~= "") then
+		return;
+	end
+	
+	local result = {};
+	
+	local thresholds = {};
+	local thresholds_max = 0;
+	
+	for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
+		if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
+			thresholds[info.threshold] = true;
+			if (info.threshold > thresholds_max) then
+				thresholds_max = info.threshold;
+			end
+		end
+	end
+	
+	local hist = C_MythicPlus.GetRunHistory(false, true);
+	table.sort(hist, function(a, b) return a.level > b.level end);
+	
+	for i = 1, thresholds_max do
+		local level = hist[i] and hist[i].level or 0;
+		if (thresholds[i]) then
+			table.insert(result, "(" .. level .. ")");
+			table.insert(result, "||");
+		else
+			table.insert(result, level);
+		end
+	end
+	
+	return table.concat(result, " ");
+end
+
+
+-- function env.commands:vault()
+-- 	if (not self.is_self) then
+-- 		return;
+-- 	end
+-- 	if (self.msg ~= "") then
+-- 		return;
+-- 	end
+	
+-- 	-- C_WeeklyRewards.OnUIInteract(); -- request thresholds
+-- 	-- C_MythicPlus.RequestMapInfo(); -- request run history
+	
+-- 	-- pray the updates have come in after 1 sec
+-- 	-- C_Timer.After(1, function()
+-- 		local result = {};
+		
+-- 		local thresholds = {};
+-- 		for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
+-- 			if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
+-- 				thresholds[info.threshold] = true;
+-- 			end
+-- 		end
+		
+-- 		local hist = C_MythicPlus.GetRunHistory(false, true);
+-- 		table.sort(hist, function(a, b) return a.level > b.level end);
+		
+-- 		for i = 1, 8 do
+-- 			local level = hist[i] and hist[i].level or 0;
+-- 			if (thresholds[i]) then
+-- 				table.insert(result, "(" .. level .. ")");
+-- 				table.insert(result, "||");
+-- 			else
+-- 				table.insert(result, level);
+-- 			end
+-- 		end
+		
+-- 		-- env.send(self, table.concat(result, " "));
+-- 		return table.concat(result, " ");
+-- 	-- end);
+-- end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--BELOW IS DEPRECATED--!--
+
+local commands = {};
 
 local function get_command(msg, pattern)
 	local name, args = msg:match(pattern)
@@ -18,7 +260,12 @@ end
 
 local last_time = 0
 
-function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
+-- function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
+function aura_env.trigger(event, ...)
+	env.OnEvent(event, ...);
+	
+	local msg, _, _, _, _, _, _, _, _, _, _, guid = ...;
+	
 	-- throttle
 	local ctime = GetTime()
 	if ctime - last_time < 1 then
@@ -27,11 +274,11 @@ function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	
 	-- get channel
 	local channel
-	if (event == "CHAT_MSG_GUILD") and aura_env.config.enable_guild then
+	if (event == "CHAT_MSG_GUILD") and aura_env.config.GUILD then
 		channel = "GUILD"
-	elseif (event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER") and aura_env.config.enable_raid then
+	elseif (event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER") and aura_env.config.RAID then
 		channel = "RAID"
-	elseif (event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER") and aura_env.config.enable_party then
+	elseif (event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER") and aura_env.config.PARTY then
 		channel = "PARTY"
 	end
 	if not channel then
@@ -73,26 +320,35 @@ function aura_env.trigger(event, msg, _, _, _, _, _, _, _, _, _, _, guid)
 		return
 	end
 	
-	if type(result) == "string" then
-		result = {result}
-	end
-	
-	local output = {}
-	for i = 1, #result do
-		local val = result[i]
-		if #val <= 255 then
-			table.insert(output, val)
-		else
-			local s = 255 + 1 - (val:sub(1, 255):reverse():find(" ") or 1)
-			table.insert(output, val:sub(1, s))
-			table.insert(output, val:sub(s + 1))
+	local function run(real)
+		if type(real) == "string" then
+			real = {real}
+		end
+		local output = {}
+		for i = 1, #real do
+			local val = real[i]
+			if #val <= 255 then
+				table.insert(output, val)
+			else
+				local s = 255 + 1 - (val:sub(1, 255):reverse():find(" ") or 1)
+				table.insert(output, val:sub(1, s))
+				table.insert(output, val:sub(s + 1))
+			end
+		end
+		
+		for i, sub in ipairs(output) do
+			C_Timer.After((i - 1)*0.1, function()
+				SendChatMessage(sub, channel)
+			end)
 		end
 	end
 	
-	for i, sub in ipairs(output) do
-		C_Timer.After((i - 1)*0.1, function()
-			SendChatMessage(sub, channel)
-		end)
+	if (type(result) == "function") then
+		C_Timer.After(1, function()
+			run(result());
+		end);
+	else
+		run(result);
 	end
 	
 	last_time = ctime
@@ -231,6 +487,7 @@ local magetower_classes = {
 }
 
 commands.magetower = {
+	self = true,
 	func = function(self)
 		local challenges = 0
 		local achis = 0
@@ -506,61 +763,43 @@ commands.quest = {
 -- commands.vault = {
 -- 	self = true,
 -- 	func = function(self)
--- 		local hist = C_MythicPlus.GetRunHistory(false, true);
+-- 		-- -- Blizzard_WeeklyRewards.lua calls functions in this order OnShow
+-- 		-- C_MythicPlus.RequestMapInfo();
+-- 		-- C_WeeklyRewards.HasAvailableRewards();
+-- 		-- C_WeeklyRewards.CanClaimRewards();
+-- 		-- C_WeeklyRewards.HasInteraction();
+-- 		-- C_WeeklyRewards.CanClaimRewards();
+-- 		-- C_WeeklyRewards.GetActivities(); -- it's probably this one doing it
 		
--- 		table.sort(hist, function(a, b)
--- 			if (a.level ~= b.level) then
--- 				return a.level > b.level;
--- 			else
--- 				return a.mapChallengeModeID < b.mapChallengeModeID;
--- 			end
--- 		end);
+-- 		C_WeeklyRewards.OnUIInteract();
 		
--- 		local function get_best(n)
--- 			local info = {level = math.huge};
--- 			if (n <= #hist) then
--- 				for i = 1, n do
--- 					local level = hist[i].level;
--- 					if (level < info.level) then
--- 						info.level = level;
--- 					end
+-- 		return function()
+-- 			local result = {};
+			
+-- 			local thresholds = {};
+-- 			for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
+-- 				if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
+-- 					thresholds[info.threshold] = true;
 -- 				end
--- 			else
--- 				info.level = 0;
 -- 			end
--- 			info.vault = C_MythicPlus.GetRewardLevelFromKeystoneLevel(info.level);
--- 			return info;
--- 		end
-		
--- 		local list = {
--- 			get_best(1),
--- 			get_best(4),
--- 			get_best(8),
--- 		};
-		
--- 		for i, v in ipairs(list) do
--- 			list[i] = "(+" .. v.level .. ")";
--- 		end
-		
--- 		return table.concat(list, " ");
+			
+-- 			local hist = C_MythicPlus.GetRunHistory(false, true);
+-- 			table.sort(hist, function(a, b) return a.level > b.level end);
+			
+-- 			for i = 1, 8 do
+-- 				local level = hist[i] and hist[i].level or 0;
+-- 				if (thresholds[i]) then
+-- 					table.insert(result, "(" .. level .. ")");
+-- 					table.insert(result, "||");
+-- 				else
+-- 					table.insert(result, level);
+-- 				end
+-- 			end
+			
+-- 			return table.concat(result, " ");
+-- 		end;
 -- 	end,
 -- };
-
-commands.vault = {
-	self = true,
-	func = function(self)
-		local list = {};
-		
-		local activities = C_WeeklyRewards.GetActivities();
-		for i, v in ipairs(activities) do
-			if (v.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
-				list[v.index] = "(+" .. v.level .. ")";
-			end
-		end
-		
-		return table.concat(list, " ");
-	end,
-};
 
 commands.reward = {
 	self = true,
@@ -602,7 +841,7 @@ commands.reward = {
 		end
 		
 		for i, v in ipairs(list) do
-			list[i] = "+" .. v.level .. " = " .. v.chest .. " (" .. v.vault .. ")";
+			list[i] = "+" .. v.level .. " = " .. v.chest .. " (" .. v.vault .. " vault)";
 		end
 		
 		return list;
@@ -730,7 +969,7 @@ commands.siegesoup = {
 
 commands.malware = {
 	func = function(self)
-		return "v" .. MINOR;
+		return MINOR;
 	end,
 }
 
