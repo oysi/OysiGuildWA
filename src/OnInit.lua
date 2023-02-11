@@ -1,6 +1,6 @@
 
 local MAJOR = "OysiGuildWA-1.0";
-local MINOR = "v34 (beta)";
+local MINOR = "v40";
 
 --[==============================================[
 	declarations
@@ -11,10 +11,7 @@ local env = aura_env;
 env.events = {};
 env.commands = {};
 
-env.time = 0;
-
--- C_WeeklyRewards.OnUIInteract(); -- request threhsolds
-C_MythicPlus.RequestMapInfo(); -- request run history
+C_MythicPlus.RequestMapInfo(); -- required for C_MythicPlus.GetRunHistory
 
 --[==============================================[
 	events
@@ -41,13 +38,7 @@ function env.events.CHAT_MSG_PARTY_LEADER(...)
 end
 
 function env.events.CHALLENGE_MODE_COMPLETED()
-	C_MythicPlus.RequestMapInfo();
-end
-
-function env.OnEvent(event, ...)
-	if (env.events[event]) then
-		env.events[event](...);
-	end
+	C_MythicPlus.RequestMapInfo(); -- required for C_MythicPlus.GetRunHistory
 end
 
 --[==============================================[
@@ -59,7 +50,8 @@ local Info = {};
 function Info:send(result)
 	if (type(result) == "string") then
 		result = {result};
-	elseif (type(result) ~= "table") then
+	end
+	if (type(result) ~= "table") then
 		return;
 	end
 	local output = {};
@@ -81,16 +73,21 @@ function Info:send(result)
 end
 
 --[==============================================[
-	command
+	functions
 ]==============================================]--
+
+function env.OnEvent(event, ...)
+	if (env.events[event]) then
+		env.events[event](...);
+	end
+end
 
 function env.command(channel, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	if (not env.config[channel]) then
 		return;
 	end
 	
-	local ctime = GetServerTime();
-	if (ctime - env.time < 1) then
+	if (GetServerTime() - (env.time or 0) < 1) then
 		return;
 	end
 	
@@ -139,12 +136,54 @@ function env.command(channel, msg, _, _, _, _, _, _, _, _, _, _, guid)
 	
 	info:send(result);
 	
-	env.time = ctime;
+	env.time = GetServerTime();
 end
 
---[==============================================[
-	general commands
-]==============================================]--
+--?--GENERAL COMMANDS--?--GENERAL COMMANDS--?--GENERAL COMMANDS--?--
+--?--GENERAL COMMANDS--?--GENERAL COMMANDS--?--GENERAL COMMANDS--?--
+--?--GENERAL COMMANDS--?--GENERAL COMMANDS--?--GENERAL COMMANDS--?--
+
+function env.commands:vaultprogress()
+	if (not self.is_self) then
+		return;
+	end
+	if (self.msg ~= "") then
+		return;
+	end
+	
+	C_MythicPlus.RequestMapInfo();
+	
+	C_Timer.After(1, function()
+		local result = {};
+		
+		local thresholds = {};
+		local thresholds_max = 0;
+		
+		for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
+			if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
+				thresholds[info.threshold] = true;
+				if (info.threshold > thresholds_max) then
+					thresholds_max = info.threshold;
+				end
+			end
+		end
+		
+		local hist = C_MythicPlus.GetRunHistory(false, true);
+		table.sort(hist, function(a, b) return a.level > b.level end);
+		
+		for i = 1, thresholds_max do
+			local level = hist[i] and hist[i].level or 0;
+			if (thresholds[i]) then
+				table.insert(result, "(" .. level .. ")");
+				table.insert(result, "||");
+			else
+				table.insert(result, level);
+			end
+		end
+		
+		self:send(table.concat(result, " "));
+	end);
+end
 
 function env.commands:vault()
 	if (not self.is_self) then
@@ -156,74 +195,109 @@ function env.commands:vault()
 	
 	local result = {};
 	
-	local thresholds = {};
-	local thresholds_max = 0;
+	local list = C_WeeklyRewards.GetActivities();
 	
 	for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
 		if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
-			thresholds[info.threshold] = true;
-			if (info.threshold > thresholds_max) then
-				thresholds_max = info.threshold;
-			end
-		end
-	end
-	
-	local hist = C_MythicPlus.GetRunHistory(false, true);
-	table.sort(hist, function(a, b) return a.level > b.level end);
-	
-	for i = 1, thresholds_max do
-		local level = hist[i] and hist[i].level or 0;
-		if (thresholds[i]) then
-			table.insert(result, "(" .. level .. ")");
-			table.insert(result, "||");
-		else
-			table.insert(result, level);
+			result[info.index] = "(+" .. info.level .. ")";
 		end
 	end
 	
 	return table.concat(result, " ");
+	
+	-- local result = {};
+	
+	-- local thresholds = {};
+	-- local thresholds_max = 0;
+	
+	-- for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
+	-- 	if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
+	-- 		thresholds[info.threshold] = true;
+	-- 		if (info.threshold > thresholds_max) then
+	-- 			thresholds_max = info.threshold;
+	-- 		end
+	-- 	end
+	-- end
+	
+	-- local hist = C_MythicPlus.GetRunHistory(false, true);
+	-- table.sort(hist, function(a, b) return a.level > b.level end);
+	
+	-- for i = 1, thresholds_max do
+	-- 	local level = hist[i] and hist[i].level or 0;
+	-- 	if (thresholds[i]) then
+	-- 		table.insert(result, "(" .. level .. ")");
+	-- 		table.insert(result, "||");
+	-- 	else
+	-- 		table.insert(result, level);
+	-- 	end
+	-- end
+	
+	-- return table.concat(result, " ");
+end
+
+--?--DRAGONFLIGHT COMMANDS--?--DRAGONFLIGHT COMMANDS--?--DRAGONFLIGHT COMMANDS--?--
+--?--DRAGONFLIGHT COMMANDS--?--DRAGONFLIGHT COMMANDS--?--DRAGONFLIGHT COMMANDS--?--
+--?--DRAGONFLIGHT COMMANDS--?--DRAGONFLIGHT COMMANDS--?--DRAGONFLIGHT COMMANDS--?--
+
+
+
+--*--FLUFF COMMANDS--*--FLUFF COMMANDS--*--FLUFF COMMANDS--*--
+--*--FLUFF COMMANDS--*--FLUFF COMMANDS--*--FLUFF COMMANDS--*--
+--*--FLUFF COMMANDS--*--FLUFF COMMANDS--*--FLUFF COMMANDS--*--
+
+local function is_sparkle(link)
+	if (not link) then
+		return false;
+	end
+	
+	local args = {strsplit(":", link)};
+	
+	local num_ids = tonumber(args[14]);
+	if (not num_ids) then
+		return false;
+	end
+	
+	for i = 1, num_ids do
+		local id = tonumber(args[14 + i]);
+		if (id == 9237) then
+			return true;
+		end
+	end
+	
+	return false;
+end
+
+function env.commands:sparklepenis()
+	local sparkles = 0;
+	
+	for i = 1, 30 do
+		local link = GetInventoryItemLink("player", i);
+		if (is_sparkle(link)) then
+			sparkles = sparkles + 1;
+		end
+	end
+	
+	return "8" .. ("="):rep(1 + 5*sparkles) .. "D";
 end
 
 
--- function env.commands:vault()
--- 	if (not self.is_self) then
--- 		return;
--- 	end
--- 	if (self.msg ~= "") then
--- 		return;
--- 	end
-	
--- 	-- C_WeeklyRewards.OnUIInteract(); -- request thresholds
--- 	-- C_MythicPlus.RequestMapInfo(); -- request run history
-	
--- 	-- pray the updates have come in after 1 sec
--- 	-- C_Timer.After(1, function()
--- 		local result = {};
-		
--- 		local thresholds = {};
--- 		for _, info in ipairs(C_WeeklyRewards.GetActivities()) do
--- 			if (info.type == Enum.WeeklyRewardChestThresholdType.MythicPlus) then
--- 				thresholds[info.threshold] = true;
--- 			end
--- 		end
-		
--- 		local hist = C_MythicPlus.GetRunHistory(false, true);
--- 		table.sort(hist, function(a, b) return a.level > b.level end);
-		
--- 		for i = 1, 8 do
--- 			local level = hist[i] and hist[i].level or 0;
--- 			if (thresholds[i]) then
--- 				table.insert(result, "(" .. level .. ")");
--- 				table.insert(result, "||");
--- 			else
--- 				table.insert(result, level);
--- 			end
--- 		end
-		
--- 		-- env.send(self, table.concat(result, " "));
--- 		return table.concat(result, " ");
--- 	-- end);
--- end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -291,11 +365,11 @@ function aura_env.trigger(event, ...)
 	-- get command
 	local command, args = get_command(msg, "^!([%a%p]+) ?(.*)$");
 	if (not command) then
-		command, args = get_command(msg, "^[!#]my([%a%p]+) ?(.*)$");
+		command, args = get_command(msg, "^[!#][Mm][Yy]([%a%p]+) ?(.*)$");
 		if (command) then
 			is_my = true;
 		else
-			command, args = get_command(msg, "^[!#]" .. UnitName("player"):lower() .. "([%a%p]+) ?(.*)$");
+			command, args = get_command(msg, "^[!#]" .. UnitName("player"):gsub(".", function(w) return "[" .. w:upper() .. w:lower() .. "]" end) .. "([%a%p]+) ?(.*)$");
 			if (not command) then
 				return;
 			end
@@ -914,10 +988,11 @@ commands.soup = {
 	func = function(self)
 		-- time {year = 2022, month = 12, day = 8, hour = 19, min = 0, sec = 0}
 		-- 1670522400
-		local dif = 1670522400 - GetServerTime();
+		-- local dif = 1670522400 - GetServerTime();
+		local dif = 1675720800 - GetServerTime();
 		
-		local sec_until = dif%(60*60*3.5);
-		local sec_since = 60*60*3.5 - sec_until;
+		local sec_until = dif%(60*60*1.5);
+		local sec_since = 60*60*1.5 - sec_until;
 		
 		local sec_end = 15*60 - sec_since;
 		if (sec_end > 0) then
